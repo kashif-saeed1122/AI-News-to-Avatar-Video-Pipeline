@@ -1,0 +1,14 @@
+fastapi
+uvicorn[standard]
+playwright
+langchain
+openai
+gnews
+sqlalchemy>=1.4
+asyncpg
+httpx
+python-dotenv
+pydantic
+aiofiles
+langchain-community
+typing-extensions
