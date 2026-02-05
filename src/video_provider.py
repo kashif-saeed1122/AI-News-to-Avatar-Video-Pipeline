@@ -14,23 +14,6 @@ HEYGEN_STATUS_URL = 'https://api.heygen.com/v1/video_status.get'
 # Your avatar ID
 AVATAR_ID = os.environ.get('HEYGEN_AVATAR_ID', '967948d61edc46c8854d639ea170aab9')
 
-# Voice Configuration - Choose male or female
-# Get voice ID from .env or use default male voice
-DEFAULT_VOICE_ID = os.environ.get('HEYGEN_VOICE_ID', '2d5b0e6cf36349c0b48b282c8e2ff88b')  # Male voice
-
-# Common HeyGen Voice IDs:
-VOICES = {
-    # Male Voices
-    'male_professional': '2d5b0e6cf36349c0b48b282c8e2ff88b',  # Professional male
-    'male_casual': 'baf1c52778f0421585788312c4425a0e',        # Casual male
-    'male_news': '40104aff703f4760bc2452535e0f9644',          # News anchor male
-    
-    # Female Voices
-    'female_professional': '1bd001e7e50f421d891986aad5158bc8',  # Professional female
-    'female_casual': 'e7dd8cf4292f4c3b9e4c4c5e3f6c1e77',       # Casual female
-    'female_news': 'af90abcf592b4e0e9d252eb5b5c0c3d5',         # News anchor female
-}
-
 
 async def generate_video(payload: dict, max_wait: int = 300) -> dict:
     """Generate video using HeyGen API."""
@@ -54,7 +37,7 @@ async def generate_video(payload: dict, max_wait: int = 300) -> dict:
             
             video_id = job_data.get('data', {}).get('video_id')
             if not video_id:
-                raise RuntimeError(f"No video_id in response: {job_data}")
+                raise RuntimeError(f"No video_id: {job_data}")
             
             logger.info(f"✅ Video job created: {video_id}")
             
@@ -91,41 +74,19 @@ async def generate_video(payload: dict, max_wait: int = 300) -> dict:
                 elif status == 'failed':
                     raise RuntimeError(f"Video failed: {status_data.get('data', {}).get('error')}")
             
-            raise TimeoutError(f"Video generation timed out after {max_wait}s")
+            raise TimeoutError(f"Timed out after {max_wait}s")
             
     except httpx.HTTPStatusError as e:
         raise RuntimeError(f"HeyGen API error: {e.response.status_code} - {e.response.text}")
 
 
-def build_did_payload(
-    script_text: str, 
-    model: Optional[str] = 'expressive',
-    voice: Optional[str] = 'male_professional',
-    **kwargs
-) -> dict:
+def build_did_payload(script_text: str, model: Optional[str] = 'expressive', **kwargs) -> dict:
     """
-    Build HeyGen payload with customizable voice.
-    
-    Args:
-        script_text: The news script text
-        model: Not used (kept for compatibility)
-        voice: Voice type - 'male_professional', 'male_news', 'female_professional', etc.
-               Or provide a direct voice_id
-    
-    Returns:
-        HeyGen API payload
+    Build HeyGen payload - EXACTLY as HeyGen API expects it.
     """
     avatar_id = kwargs.get('avatar_id', AVATAR_ID)
     
-    # Get voice ID
-    if voice in VOICES:
-        voice_id = VOICES[voice]
-    elif voice and len(voice) == 32:  # Direct voice ID provided
-        voice_id = voice
-    else:
-        voice_id = DEFAULT_VOICE_ID  # Use default from .env or male_professional
-    
-    # HeyGen payload structure
+    # THIS IS THE CORRECT PAYLOAD STRUCTURE
     payload = {
         "caption": False,
         "video_inputs": [
@@ -137,8 +98,8 @@ def build_did_payload(
                 },
                 "voice": {
                     "type": "text",
-                    "input_text": script_text,
-                    "voice_id": voice_id
+                    "input_text": script_text,  # ← YOUR SCRIPT GOES HERE
+                    "voice_id": "f38a635bee7a4d1f9b0a654a31d050d2"
                 },
                 "background": {
                     "type": "color",
@@ -152,29 +113,22 @@ def build_did_payload(
         }
     }
     
-    logger.info(f"🎤 Using voice: {voice} (ID: {voice_id})")
-    
     return payload
 
 
-# Test function
-async def test_voices():
-    """Test different voices"""
-    script = "Breaking news: Artificial intelligence adoption has increased by 40 percent."
+# QUICK TEST
+async def test():
+    script = "Breaking news: AI adoption has increased by 40 percent in the past year."
+    payload = build_did_payload(script)
     
-    print("🎤 Testing Male Professional Voice...")
-    payload = build_did_payload(script, voice='male_professional')
+    print("Testing HeyGen...")
+    print(f"Script: {script}")
     
-    try:
-        result = await generate_video(payload)
-        print(f"✅ Video URL: {result['video_url']}")
-        print(f"🎉 Open in browser to watch!")
-        return result
-    except Exception as e:
-        print(f"❌ Error: {e}")
-        raise
+    result = await generate_video(payload)
+    print(f"✅ Video URL: {result['video_url']}")
+    return result
 
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
-    asyncio.run(test_voices())
+    asyncio.run(test())
